@@ -28,12 +28,12 @@ LowPassFilter lowPassFilt;
 #define JACKOUT4 8
 #define JACKOUT5 4
 #define JACKOUT6 12
-#define JACKOUT7 7
+#define JACKOUT7 10
 
 #define LED3 15
 #define LED4 13
 #define LED5 22
-#define LED6 11
+#define LED6 6
 
 #define JACKIN1 9
 #define JACKIN2 1
@@ -43,8 +43,8 @@ LowPassFilter lowPassFilt;
 #define JACKIN6 3
 #define JACKIN7 2
 #define JACKIN8 5
-#define JACKIN9 10
-#define JACKIN10 6
+#define JACKIN9 7
+#define JACKIN10 11
 
 #define NUM_OUT_JACKS 7
 #define NUM_IN_JACKS 10
@@ -75,12 +75,14 @@ unsigned long currentTimeMicr;
 unsigned long timeLed3 = 0;
 unsigned long timeLed4 = 0;
 unsigned long timeLed5 = 0;
+unsigned long timeLed6 = 0;
 
 int jacksIter = 0; 
 
 int analogReadIter = 0;
 int pot1Val = 0;
 int pot2Val = 0;
+int pot3Val = 0;
 int envVal = 0;
 int envAttackVal = 0;
 int envReleaseVal = 0;
@@ -93,13 +95,22 @@ int potReadIter = 0;
 bool clockVal = false;
 int prevClockVal = 9999;
 int prevClockVal2 = 9999;
+int prevClockVal3 = 9999;
 bool clockSignalRising = false;
 bool clockSignalRising2 = false;
+bool clockSignalRising3 = false;
+int clock3Iter = 0;
 char shiftRegisterData = 0;
 int shiftRegisterDAC = 0;
 int shiftRegisterIter = 0;
+char shiftRegisterData2 = 0;
+int shiftRegisterDAC2 = 0;
+int shiftRegisterIter2 = 0;
+unsigned int shiftRegVal = 0;
+unsigned int shiftRegVal2 = 0;
 int pulse1Val = 0;
 int pulse2Val = 0;
+int audioOutPulseVal = 0;
 int osc1FreqVal = 0;
 int pulseThreshold = 0;
 
@@ -142,10 +153,10 @@ inline float getJackValue(int jackId, int defaultVal){
 			getJackValueOut = shiftRegisterDAC;
 		}
 		else if(connectedOutJackId == 5){
-			getJackValueOut = 6;
+			getJackValueOut = shiftRegisterData2;
 		}
-    else if(connectedOutJackId == 5){
-			getJackValueOut = 7;
+	    else if(connectedOutJackId == 6){
+			getJackValueOut = pot3Val;
 		}
 	}
 
@@ -214,7 +225,7 @@ inline int mapInt(int x, int in_min, int in_max, int out_min, int out_max) {
 }
 
 inline void setLedFade(uint pin, int value, int maxValue, unsigned long &currentTimeMicr, unsigned long &outTime){
-	if(currentTimeMicr - outTime > (maxValue - value) * CONTROL_RATE_HALF){
+	if(currentTimeMicr - outTime > (maxValue - value) * (CONTROL_RATE_HALF/2)){
 		digitalWrite(pin, HIGH);
 
 		outTime = currentTimeMicr;
@@ -239,6 +250,8 @@ void setup(){
 	env.set(32, CONTROL_RATE);
 
 	// setup pins
+	adcDisconnectAllDigitalIns();
+
 	pinMode(A0, INPUT);
 	pinMode(A1, INPUT);
 	pinMode(A2, INPUT);
@@ -249,12 +262,12 @@ void setup(){
 	pinMode(JACKOUT4, OUTPUT);
 	pinMode(JACKOUT5, OUTPUT);
 	pinMode(JACKOUT6, OUTPUT);
-  pinMode(JACKOUT7, OUTPUT);
+  	pinMode(JACKOUT7, OUTPUT);
 
 	pinMode(LED3, OUTPUT);
 	pinMode(LED4, OUTPUT);
 	pinMode(LED5, OUTPUT);
-  pinMode(LED6, OUTPUT);
+  	pinMode(LED6, OUTPUT);
 
 	pinMode(JACKIN1, INPUT_PULLUP);
 	pinMode(JACKIN2, INPUT_PULLUP);
@@ -278,8 +291,6 @@ inline void setBit(char& ch, unsigned int pos, unsigned int value)
     ch = (ch & ~(1<<pos)) | (value << pos);
 }
 
-unsigned int shiftRegVal = 0;
-
 inline void updateShiftRegister(){
 	shiftRegisterData = (jack3Val * 0.5);
 
@@ -297,6 +308,23 @@ inline void updateShiftRegister(){
 	// print(shiftRegisterIter);
 }
 
+inline void updateShiftRegister2(){
+	shiftRegisterData2 = osc1Val;
+
+	shiftRegVal2 = (int)(audioOutPulseVal == (pulse1Val == pulse2Val));
+
+	setBit(shiftRegisterData2, shiftRegisterIter2, shiftRegVal2);
+
+	shiftRegisterDAC2 = (int)shiftRegisterData2 * 2;
+
+	shiftRegisterIter2++;
+	if(shiftRegisterIter2 > 7){
+		shiftRegisterIter2 = 0;
+	}
+
+	// print(shiftRegisterData2);
+}
+
 void updateControl(){
 	if(jacksIter == 10){
     	// pinMode(1, INPUT_PULLUP);
@@ -308,32 +336,45 @@ void updateControl(){
 	}
 	jacksIter++;
 
-	if(analogReadIter == 10){
-		analogReadIter = 0;
+	// adcStartConversion(adcChan0);
+
+	// if(analogReadIter == 10){
+	// 	analogReadIter = 0;
 		
-		if(potReadIter == 0){
-			pot1Val = analogRead(A2) / 4;// 0 - 1024 converted to 0 - 256
+	// 	if(potReadIter == 0){
+			// pot1Val = analogRead(A2) / 4;// 0 - 1024 converted to 0 - 256
 
-			potReadIter = 1;
-		}
-		else{
-			pot2Val = analogRead(A1) / 4;// 0 - 1024 converted to 0 - 256
+			pot1Val = mapInt(mozziAnalogRead(A2), 10, 4000, 0, 255);
 
-			potReadIter = 0;
-		}
-	}
-	analogReadIter++;
+		// 	potReadIter = 1;
+		// }
+		// else if(potReadIter == 1){
+			// pot2Val = analogRead(A1) / 4;// 0 - 1024 converted to 0 - 256
+
+			pot2Val = mapInt(mozziAnalogRead(A1), 10, 4000, 0, 255);
+			
+		// 	potReadIter = 2;
+		// }
+		// else{
+			// pot3Val = analogRead(A0) / 4;// 0 - 1024 converted to 0 - 256
+
+			pot3Val = mapInt(mozziAnalogRead(A0), 10, 4000, 0, 255);
+
+		// 	potReadIter = 0;	
+		// }
+	// }
+	// analogReadIter++;
 
 	jack1Val = getJackValue(1, 0); // 0 - 256
 	jack2Val = getJackValue(2, pulse2Val); // 0 - 256
 	jack3Val = getJackValue(3, 0); // 0 - 256
 	jack4Val = getJackValue(4, 7); // 0 - 256
-	jack5Val = getJackValue(5, 1); // 0 - 256
-	jack6Val = getJackValue(6, 1); // 0 - 256
-	jack7Val = getJackValue(7, 0); // 0 - 256
-	jack8Val = getJackValue(8, 0); // 0 - 256
-	jack9Val = getJackValue(9, 0); // 0 - 256
-	jack10Val = getJackValue(10, 0); // 0 - 256
+	jack5Val = getJackValue(5, 0); // 0 - 256
+	jack6Val = getJackValue(6, 100); // 0 - 256
+	jack7Val = getJackValue(7, 255); // 0 - 256
+	jack8Val = getJackValue(8, -1); // 0 - 256
+	jack9Val = getJackValue(9, -1); // 0 - 256
+	jack10Val = getJackValue(10, -1); // 0 - 256
 
 	osc1FreqVal = pot1Val;
 	if(jack1Val > 0){
@@ -342,14 +383,24 @@ void updateControl(){
 
 	osc1.setFreq(osc1FreqVal * 2);
 
-	lfo.setFreq(pot1Val * 100);
+	int lfoFreqVal = jack8Val;
+	if(lfoFreqVal == -1){
+		lfoFreqVal = pot1Val;
+	}
 
-  	osc2.setFreq(pot2Val * 100);
+	lfo.setFreq(lfoFreqVal * 100);
+
+	int osc2FreqVal = jack9Val;
+	if(osc2FreqVal == -1){
+		osc2FreqVal = pot2Val;
+	}
+	
+  	osc2.setFreq(osc2FreqVal * 100);
 
 	lfoVal = lfo.next() + 128;// -128 - 1024 converted to 0 - 256
   	osc2Val = osc2.next() + 128;
 
-  	lowPassFilt.setCutoffFreqAndResonance(128, 200);
+  	lowPassFilt.setCutoffFreqAndResonance(jack7Val, 200);
 
   	pulse1Val = 0;
 	if(lfoVal > 128){
@@ -404,8 +455,37 @@ void updateControl(){
 		env.start();
 	}
 
-	envAttackVal = 2 * jack5Val;
-	envReleaseVal = 100 * jack6Val;
+	audioOutPulseVal = 0;
+	if(osc1Val > 0){
+		audioOutPulseVal = 1;
+	}
+
+	// update second clock
+	if(jack10Val == -1){
+		if(clock3Iter > 100){
+			clock3Iter = 0;
+
+			updateShiftRegister2();
+		}
+
+		clock3Iter++;
+	}
+	else{
+		if(jack10Val < prevClockVal3){// if falling
+			if(clockSignalRising3){// if was rising
+		  		updateShiftRegister2();
+		  	}
+
+		  	clockSignalRising3 = false;
+		}
+		else if(jack10Val > prevClockVal3){
+			clockSignalRising3 = true;
+		}
+		prevClockVal3 = jack10Val;
+	}
+
+	envAttackVal = jack5Val + 2;
+	envReleaseVal = jack6Val + 4;
 
 	env.set(envAttackVal, envReleaseVal);
 
@@ -415,6 +495,7 @@ void updateControl(){
 	setLedFade(LED3, lfoVal, 256, currentTimeMicr, timeLed3);
 	setLedFade(LED4, osc2Val, 256, currentTimeMicr, timeLed4);
 	setLedFade(LED5, shiftRegisterData, 256, currentTimeMicr, timeLed5);
+	setLedFade(LED6, shiftRegisterData2, 256, currentTimeMicr, timeLed6);
 }
 
 AudioOutput_t updateAudio(){
