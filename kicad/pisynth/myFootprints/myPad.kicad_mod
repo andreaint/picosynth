@@ -18,6 +18,6 @@
     (effects (font (size 1 1) (thickness 0.15)))
     (tstamp bc195a5e-aed9-4977-9463-c7953a9604c4)
   )
-  (fp_circle (center 0 0) (end 1.3 -0.5) (layer "F.CrtYd") (width 0.05) (fill none) (tstamp fb154a2a-30d0-42d8-bb6b-72f771a155d4))
-  (pad "1" thru_hole circle (at 0 0) (size 2.5 2.5) (drill 0.7) (layers *.Cu *.Mask) (tstamp 8dde9aae-7120-4501-83b6-ce37554828a7))
+  (fp_circle (center 0 0) (end 1 -0.4) (layer "F.CrtYd") (width 0.05) (fill none) (tstamp fb154a2a-30d0-42d8-bb6b-72f771a155d4))
+  (pad "1" thru_hole circle (at 0 0) (size 2 2) (drill 0.7) (layers *.Cu *.Mask) (tstamp 8dde9aae-7120-4501-83b6-ce37554828a7))
 )
